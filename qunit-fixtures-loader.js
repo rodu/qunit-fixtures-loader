@@ -1,3 +1,14 @@
+/* This is a plugin for the QUnit test framework which allows to load HTML
+fragments for testing.
+
+The plugin uses deferred/promises implementation from jQuery, in combination
+with 'when' and 'ajax' asyncronous resolvers.
+
+Given an array of urls the plugin will make an ajax request for each. On
+successful completion of all requests, the HTML responses are extracted from
+each ajax results and passed as arguments to the resolve to be returned to the
+caller in the same order as the urls given.
+*/
 /* global QUnit: true */
 $(function fixturesLoader(){
   'use strict';
@@ -10,18 +21,23 @@ $(function fixturesLoader(){
         $.when.apply(this, $.map(urls, function mapUrls(url){
           return $.ajax(url);
 
-        })).done(function doneFn(){ // once all $.ajax complete
+        })).then(function success(){ // once all $.ajax complete
           // Resolves the promise returning the HTML for fixtures in order
           deferred.resolve.apply(this,
+            // arguments to the success function is an array of data returned by
+            // each $.ajax for each url
             $.map(Array.prototype.slice.apply(arguments), function mapArgs(arg){
-              // The arg parameter received is an array of data items created
-              // with the results returned by each $.ajax for each url. That
-              // will sit at the position 0 of the arg array. If we requested a
-              // single url, arg will be the result retrieved for that url.
               return $.isArray(arg) ? arg[0] : arg;
           }));
 
-        }).fail(deferred.reject);
+        },
+        function fail(xhr){
+          var errorMessage = 'Fixture load failed! ' +
+                              (xhr.responseText || this.url);
+          console.error(errorMessage);
+          deferred.reject(errorMessage);
+        }
+      );
 
       return deferred.promise();
     }
